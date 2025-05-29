@@ -1,45 +1,33 @@
-# Byte-compiled / optimized / DLL files
+# Byte-compiled files
 __pycache__/
 *.py[cod]
-*$py.class
 
-# Virtual environment
+# Virtual environments
 venv/
 env/
 .venv/
-.env/
 
-# Distribution / packaging
+# Packaging
 build/
 dist/
 *.egg-info/
 .eggs/
 
-# Logs and databases
+# Logs
 *.log
+
+# Local DB files
+*.db
+*.sqlite
 *.sqlite3
 
-# IDEs and editors
+# IDEs
 .vscode/
 .idea/
-*.sublime-project
-*.sublime-workspace
 
 # OS files
 .DS_Store
 Thumbs.db
 
-# Python test cache
-.pytest_cache/
-.cache/
-
-# Jupyter Notebook checkpoints
-.ipynb_checkpoints/
-
-# Ignore requirements.txt if auto-generated (optional)
-# requirements.txt
-
-# Ignore .env files with secrets or config
+# Env files with secrets
 .env
-
-# Ignore any other sensitive or local files you don't want in git
