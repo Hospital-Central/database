@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Date, DateTime, Boolean, ForeignKey, DECIMAL
+from sqlalchemy import Column, Integer, String, Date, DateTime, Boolean, ForeignKey, Float
 from sqlalchemy.orm import relationship
 from database.setup import Base
 
@@ -62,3 +62,64 @@ class Leito(Base):
     disponivel = Column(Boolean)
 
     internacoes = relationship('Internacao', back_populates='leito')
+
+class Exame(Base):
+    __tablename__='esame'
+    id = Column('ID_Exame', Integer, primary_key = True)
+    tipo = Column(String)
+    resultado = Column(String)
+    data = Column(DateTime)
+
+    paciente = relationship('Paciente', back_populates='exames')
+    funcionario = relationship('Funcionario', back_populates='exames')
+
+class Agendamento(Base):
+    __tablename__ = 'agendamento'
+    id = Column ('ID_Agendamento', Integer, primary_key= True)
+    data_hora = Column (DateTime)
+    tipo = Column (String)
+
+    paciente = relationship('Paciente', back_populates='agendamentos')
+    funcionario = relationship('Funcionario', back_populates='agendamentos')
+
+class Fatura (Base):
+    __tablename__ = 'fatura'
+    id = Column ('ID_Fatura', Integer, primary_key = True)
+    data_emissao = Column (DateTime)
+    valor = Column (Float) 
+    status_pag = Column (String)
+
+    paciente = relationship('Paciente', back_populates='faturas')
+    funcionario = relationship('Funcionario', back_populates='faturas')
+
+class Prescricao (Base):
+    __tablename__ = 'prescricao'
+    id = Column ('ID_Prescricao', Integer, primary_key= True)
+    data_prescricao = Column (DateTime)
+
+    paciente = relationship('Paciente', back_populates='prescricoes')
+    funcionario = relationship('Funcionario', back_populates='prescricoes')
+    medicamentos = relationship('Medicamento', back_populates='prescricao')
+    medicamentos_assoc = relationship("PrescricaoMedicamento", back_populates="prescricao")
+
+class Medicamento(Base):
+    __tablename__ = 'medicamento'
+    id = Column ('ID_Medicamento', Integer, primary_key=True)
+    nome_med = Column (String) #Fazer as sugestões da distinção de nomes
+    dosagem = Column(String)
+    frequencia = Column (String)
+
+    prescricao = relationship('Prescricao', back_populates='medicamentos')
+    prescricoes_assoc = relationship("PrescricaoMedicamento", back_populates="medicamento")
+
+class PrescricaoMedicamento(Base):
+    __tablename__ = 'prescricao_medicamento'
+    id_prescricao = Column(Integer, ForeignKey('prescricao.ID_Prescricao'), primary_key=True)
+    id_medicamento = Column(Integer, ForeignKey('medicamento.ID_Medicamento'), primary_key=True)
+    quantidade = Column(Integer)
+    instrucoes = Column(String)
+
+    prescricao = relationship("Prescricao", back_populates="medicamentos_assoc")
+    medicamento = relationship("Medicamento", back_populates="prescricoes_assoc")
+
+
