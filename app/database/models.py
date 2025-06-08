@@ -64,7 +64,7 @@ class Leito(Base):
     internacoes = relationship('Internacao', back_populates='leito')
 
 class Exame(Base):
-    __tablename__='esame'
+    __tablename__='exame'
     id = Column('ID_Exame', Integer, primary_key = True)
     tipo = Column(String)
     resultado = Column(String)
