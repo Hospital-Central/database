@@ -5,11 +5,12 @@ from database.setup import Base
 class Paciente(Base):
     __tablename__ = 'paciente'
     id = Column('ID_Paciente', Integer, primary_key=True)
-    nome = Column(String)
+    nome = Column(String(100), nullable=False)
     data_nascimento = Column(Date)
-    cpf = Column(String)
-    telefone = Column(String)
-    endereco = Column(String)
+    cpf = Column(String(14), unique=True)
+    telefone = Column(String(20))
+    endereco = Column(String(255))
+    ativo = Column(Boolean, default=True)
 
     consultas = relationship('Consulta', back_populates='paciente')
     internacoes = relationship('Internacao', back_populates='paciente')
@@ -21,11 +22,11 @@ class Paciente(Base):
 class Funcionario(Base):
     __tablename__ = 'funcionario'
     id = Column('ID_Funcionario', Integer, primary_key=True)
-    nome = Column(String)
-    cargo = Column(String)
-    especialidade = Column(String)
-    crm = Column(String)
-    telefone = Column(String)
+    nome = Column(String(100), nullable=False)
+    cargo = Column(String(50))
+    especialidade = Column(String(50))
+    crm = Column(String(20), unique=True)
+    telefone = Column(String(20))
 
     consultas = relationship('Consulta', back_populates='funcionario')
     exames = relationship('Exame', back_populates='funcionario')
@@ -57,59 +58,70 @@ class Internacao(Base):
 class Leito(Base):
     __tablename__ = 'leito'
     id = Column('ID_Leito', Integer, primary_key=True)
-    numero = Column(String)
-    tipo = Column(String)
+    numero = Column(String(10))
+    tipo = Column(String(50))
     disponivel = Column(Boolean)
 
     internacoes = relationship('Internacao', back_populates='leito')
 
 class Exame(Base):
     __tablename__='exame'
-    id = Column('ID_Exame', Integer, primary_key = True)
-    tipo = Column(String)
-    resultado = Column(String)
+    id = Column('ID_Exame', Integer, primary_key=True)
+    tipo = Column(String(50))
+    resultado = Column(String(255))
     data = Column(DateTime)
+
+    id_paciente = Column(Integer, ForeignKey('paciente.ID_Paciente'))
+    id_funcionario = Column(Integer, ForeignKey('funcionario.ID_Funcionario'))
+
 
     paciente = relationship('Paciente', back_populates='exames')
     funcionario = relationship('Funcionario', back_populates='exames')
 
 class Agendamento(Base):
     __tablename__ = 'agendamento'
-    id = Column ('ID_Agendamento', Integer, primary_key= True)
-    data_hora = Column (DateTime)
-    tipo = Column (String)
+    id = Column('ID_Agendamento', Integer, primary_key=True)
+    data_hora = Column(DateTime)
+    tipo = Column(String(50))
+    paciente_id = Column(Integer, ForeignKey('paciente.ID_Paciente'))
+    funcionario_id = Column(Integer, ForeignKey('funcionario.ID_Funcionario'))
 
     paciente = relationship('Paciente', back_populates='agendamentos')
     funcionario = relationship('Funcionario', back_populates='agendamentos')
 
-class Fatura (Base):
+class Fatura(Base):
     __tablename__ = 'fatura'
-    id = Column ('ID_Fatura', Integer, primary_key = True)
-    data_emissao = Column (DateTime)
-    valor = Column (Float) 
-    status_pag = Column (String)
+    id = Column('ID_Fatura', Integer, primary_key=True)
+    data_emissao = Column(DateTime)
+    valor = Column(Float)
+    status_pag = Column(String(50))
+
+    paciente_id = Column(Integer, ForeignKey('paciente.ID_Paciente'))
+    funcionario_id = Column(Integer, ForeignKey('funcionario.ID_Funcionario'))
+
 
     paciente = relationship('Paciente', back_populates='faturas')
     funcionario = relationship('Funcionario', back_populates='faturas')
 
-class Prescricao (Base):
+class Prescricao(Base):
     __tablename__ = 'prescricao'
-    id = Column ('ID_Prescricao', Integer, primary_key= True)
-    data_prescricao = Column (DateTime)
+    id = Column('ID_Prescricao', Integer, primary_key=True)
+    data_prescricao = Column(DateTime)
+    paciente_id = Column(Integer, ForeignKey('paciente.ID_Paciente'))
+    funcionario_id = Column(Integer, ForeignKey('funcionario.ID_Funcionario'))
 
     paciente = relationship('Paciente', back_populates='prescricoes')
     funcionario = relationship('Funcionario', back_populates='prescricoes')
-    medicamentos = relationship('Medicamento', back_populates='prescricao')
     medicamentos_assoc = relationship("PrescricaoMedicamento", back_populates="prescricao")
+
 
 class Medicamento(Base):
     __tablename__ = 'medicamento'
-    id = Column ('ID_Medicamento', Integer, primary_key=True)
-    nome_med = Column (String) #Fazer as sugestões da distinção de nomes
-    dosagem = Column(String)
-    frequencia = Column (String)
+    id = Column('ID_Medicamento', Integer, primary_key=True)
+    nome_med = Column(String(100)) 
+    dosagem = Column(String(50))
+    frequencia = Column(String(50))
 
-    prescricao = relationship('Prescricao', back_populates='medicamentos')
     prescricoes_assoc = relationship("PrescricaoMedicamento", back_populates="medicamento")
 
 class PrescricaoMedicamento(Base):
@@ -117,9 +129,8 @@ class PrescricaoMedicamento(Base):
     id_prescricao = Column(Integer, ForeignKey('prescricao.ID_Prescricao'), primary_key=True)
     id_medicamento = Column(Integer, ForeignKey('medicamento.ID_Medicamento'), primary_key=True)
     quantidade = Column(Integer)
-    instrucoes = Column(String)
+    instrucoes = Column(String(255))
 
     prescricao = relationship("Prescricao", back_populates="medicamentos_assoc")
     medicamento = relationship("Medicamento", back_populates="prescricoes_assoc")
-
 

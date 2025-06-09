@@ -5,7 +5,25 @@ from database.models import (
     Exame, Agendamento, Fatura, Prescricao, Medicamento, PrescricaoMedicamento
 )
 
-# 1. Criar internação e atualizar leito para indisponível
+
+def marcar_leito_indisponivel(db: Session, id_leito: int):
+    leito = db.query(Leito).filter(Leito.id == id_leito).first()
+    if leito:
+        leito.disponivel = False
+       
+
+def gerar_fatura_automatica(db: Session, id_paciente: int, id_funcionario: int):
+    fatura = Fatura(
+        data_emissao=datetime.datetime.now(),
+        valor=100.0,  
+        status_pag="Pendente",
+        id_paciente=id_paciente,
+        id_funcionario=id_funcionario
+    )
+    db.add(fatura)
+  
+
+
 def create_internacao(db: Session, id_paciente: int, id_leito: int, data_entrada, data_saida=None):
     internacao = Internacao(
         id_paciente=id_paciente,
@@ -15,67 +33,55 @@ def create_internacao(db: Session, id_paciente: int, id_leito: int, data_entrada
     )
     db.add(internacao)
 
-    # Trigger simulada: atualizar leito para indisponível
-    leito = db.query(Leito).filter(Leito.id == id_leito).first()
-    if leito:
-        leito.disponivel = False
+    marcar_leito_indisponivel(db, id_leito)
 
     db.commit()
     db.refresh(internacao)
     return internacao
 
 
-# 2. Dar alta na internação e liberar leito
-def dar_alta(db: Session, id_internacao: int, nova_data_saida):
-    internacao = db.query(Internacao).filter(Internacao.id == id_internacao).first()
-    if internacao and internacao.data_saida is None and nova_data_saida:
-        internacao.data_saida = nova_data_saida
+def dar_alta(db: Session, internacao_id: int, nova_data_saida):
+    internacao = db.query(Internacao).filter(Internacao.id == internacao_id).first()
+    if not internacao:
+        raise ValueError("Internação não encontrada.")
+    if internacao.data_saida is not None:
+        raise ValueError("Internação já tem data de saída.")
 
-        leito = db.query(Leito).filter(Leito.id == internacao.id_leito).first()
-        if leito:
-            leito.disponivel = True
+    internacao.data_saida = nova_data_saida
 
-        db.commit()
-        db.refresh(internacao)
-        return internacao
-    return None
+    leito = db.query(Leito).filter(Leito.id == internacao.id_leito).first()
+    if leito:
+        leito.disponivel = True
+
+    db.commit()
+    db.refresh(internacao)
+    return internacao
 
 
-# 3. Criar agendamento e gerar fatura automaticamente
 def create_agendamento(db: Session, id_paciente: int, id_funcionario: int, data_hora, tipo: str):
     agendamento = Agendamento(
         data_hora=data_hora,
         tipo=tipo,
-        paciente_id=id_paciente,
-        funcionario_id=id_funcionario
+        id_paciente=id_paciente,
+        id_funcionario=id_funcionario
     )
     db.add(agendamento)
 
-    # Trigger simulada: criar fatura associada
-    fatura = Fatura(
-        data_emissao=datetime.datetime.now(),
-        valor=100.00,  # valor fixo como exemplo
-        status_pag="Pendente",
-        paciente_id=id_paciente,
-        funcionario_id=id_funcionario
-    )
-    db.add(fatura)
+    gerar_fatura_automatica(db, id_paciente, id_funcionario)
 
     db.commit()
     db.refresh(agendamento)
     return agendamento
 
 
-# 4. Cancelar agendamento e cancelar fatura pendente relacionada
-def cancelar_agendamento(db: Session, id_agendamento: int):
-    agendamento = db.query(Agendamento).filter(Agendamento.id == id_agendamento).first()
+def cancelar_agendamento(db: Session, agendamento_id: int):
+    agendamento = db.query(Agendamento).filter(Agendamento.id == agendamento_id).first()
     if not agendamento:
         return None
 
-    # Buscar fatura pendente mais recente relacionada ao paciente e funcionário
     fatura = db.query(Fatura).filter(
-        Fatura.paciente_id == agendamento.paciente_id,
-        Fatura.funcionario_id == agendamento.funcionario_id,
+        Fatura.id_paciente == agendamento.id_paciente,
+        Fatura.id_funcionario == agendamento.id_funcionario,
         Fatura.status_pag == 'Pendente'
     ).order_by(Fatura.data_emissao.desc()).first()
 
@@ -88,25 +94,23 @@ def cancelar_agendamento(db: Session, id_agendamento: int):
     return True
 
 
-# 5. Marcar paciente como inativo ao invés de deletar
-def desativar_paciente(db: Session, id_paciente: int):
-    paciente = db.query(Paciente).filter(Paciente.id == id_paciente).first()
+def desativar_paciente(db: Session, paciente_id: int):
+    paciente = db.query(Paciente).filter(Paciente.id == paciente_id).first()
     if paciente:
-        paciente.ativo = False  # Certifique-se que o campo 'ativo' existe no model Paciente
+        paciente.ativo = False
         db.commit()
         return paciente
     return None
 
 
-# 6. Criar prescrição e exigir que pelo menos um medicamento seja associado
 def create_prescricao_com_validacao(db: Session, id_paciente: int, id_funcionario: int, data_prescricao, medicamentos: list):
     if not medicamentos:
         raise ValueError("A prescrição deve conter pelo menos um medicamento.")
 
     prescricao = Prescricao(
         data_prescricao=data_prescricao,
-        paciente_id=id_paciente,
-        funcionario_id=id_funcionario
+        id_paciente=id_paciente,
+        id_funcionario=id_funcionario
     )
     db.add(prescricao)
     db.commit()
@@ -123,3 +127,4 @@ def create_prescricao_com_validacao(db: Session, id_paciente: int, id_funcionari
 
     db.commit()
     return prescricao
+
