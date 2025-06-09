@@ -1,60 +1,125 @@
 import datetime
-import pymysql  # ou use outro conector que você usa
-
-# Conexão com o banco
-conn = pymysql.connect(
-    host='localhost',
-    user='seu_usuario',
-    password='sua_senha',
-    db='seu_banco',
-    charset='utf8mb4',
-    cursorclass=pymysql.cursors.DictCursor
+from sqlalchemy.orm import Session
+from database.models import (
+    Paciente, Funcionario, Consulta, Internacao, Leito,
+    Exame, Agendamento, Fatura, Prescricao, Medicamento, PrescricaoMedicamento
 )
 
-def atualiza_disponibilidade_leito(id_leito):
-    with conn.cursor() as cursor:
-        sql = "UPDATE Leito SET Disponivel = FALSE WHERE ID_Leito = %s"
-        cursor.execute(sql, (id_leito,))
-    conn.commit()
+# 1. Criar internação e atualizar leito para indisponível
+def create_internacao(db: Session, id_paciente: int, id_leito: int, data_entrada, data_saida=None):
+    internacao = Internacao(
+        id_paciente=id_paciente,
+        id_leito=id_leito,
+        data_entrada=data_entrada,
+        data_saida=data_saida
+    )
+    db.add(internacao)
 
-def libera_leito_apos_alta(id_leito, data_saida_old, data_saida_new):
-    if data_saida_old is None and data_saida_new is not None:
-        with conn.cursor() as cursor:
-            sql = "UPDATE Leito SET Disponivel = TRUE WHERE ID_Leito = %s"
-            cursor.execute(sql, (id_leito,))
-        conn.commit()
+    # Trigger simulada: atualizar leito para indisponível
+    leito = db.query(Leito).filter(Leito.id == id_leito).first()
+    if leito:
+        leito.disponivel = False
 
-def gera_fatura_apos_agendamento(id_paciente):
-    with conn.cursor() as cursor:
-        sql = """
-        INSERT INTO Fatura (Data_Emissao, Valor, Status_Pagamento, ID_Paciente)
-        VALUES (%s, %s, %s, %s)
-        """
-        cursor.execute(sql, (datetime.datetime.now(), 100.00, 'Pendente', id_paciente))
-    conn.commit()
+    db.commit()
+    db.refresh(internacao)
+    return internacao
 
 
-# Quando inserir uma nova internação:
-def inserir_internacao(id_leito, outros_campos):
-    with conn.cursor() as cursor:
-        # Inserção
-        sql = "INSERT INTO Internacao (ID_Leito, ...) VALUES (%s, ...)"
-        cursor.execute(sql, (id_leito, ...))
-    conn.commit()
-    atualiza_disponibilidade_leito(id_leito)
+# 2. Dar alta na internação e liberar leito
+def dar_alta(db: Session, id_internacao: int, nova_data_saida):
+    internacao = db.query(Internacao).filter(Internacao.id == id_internacao).first()
+    if internacao and internacao.data_saida is None and nova_data_saida:
+        internacao.data_saida = nova_data_saida
 
-# Quando atualizar uma internação (para alta):
-def atualizar_internacao(id_internacao, data_saida_old, data_saida_new, id_leito):
-    with conn.cursor() as cursor:
-        sql = "UPDATE Internacao SET Data_Saida=%s WHERE ID_Internacao=%s"
-        cursor.execute(sql, (data_saida_new, id_internacao))
-    conn.commit()
-    libera_leito_apos_alta(id_leito, data_saida_old, data_saida_new)
+        leito = db.query(Leito).filter(Leito.id == internacao.id_leito).first()
+        if leito:
+            leito.disponivel = True
 
-# Quando inserir um agendamento:
-def inserir_agendamento(id_paciente, outros_campos):
-    with conn.cursor() as cursor:
-        sql = "INSERT INTO Agendamento (ID_Paciente, ...) VALUES (%s, ...)"
-        cursor.execute(sql, (id_paciente, ...))
-    conn.commit()
-    gera_fatura_apos_agendamento(id_paciente)
+        db.commit()
+        db.refresh(internacao)
+        return internacao
+    return None
+
+
+# 3. Criar agendamento e gerar fatura automaticamente
+def create_agendamento(db: Session, id_paciente: int, id_funcionario: int, data_hora, tipo: str):
+    agendamento = Agendamento(
+        data_hora=data_hora,
+        tipo=tipo,
+        paciente_id=id_paciente,
+        funcionario_id=id_funcionario
+    )
+    db.add(agendamento)
+
+    # Trigger simulada: criar fatura associada
+    fatura = Fatura(
+        data_emissao=datetime.datetime.now(),
+        valor=100.00,  # valor fixo como exemplo
+        status_pag="Pendente",
+        paciente_id=id_paciente,
+        funcionario_id=id_funcionario
+    )
+    db.add(fatura)
+
+    db.commit()
+    db.refresh(agendamento)
+    return agendamento
+
+
+# 4. Cancelar agendamento e cancelar fatura pendente relacionada
+def cancelar_agendamento(db: Session, id_agendamento: int):
+    agendamento = db.query(Agendamento).filter(Agendamento.id == id_agendamento).first()
+    if not agendamento:
+        return None
+
+    # Buscar fatura pendente mais recente relacionada ao paciente e funcionário
+    fatura = db.query(Fatura).filter(
+        Fatura.paciente_id == agendamento.paciente_id,
+        Fatura.funcionario_id == agendamento.funcionario_id,
+        Fatura.status_pag == 'Pendente'
+    ).order_by(Fatura.data_emissao.desc()).first()
+
+    db.delete(agendamento)
+
+    if fatura:
+        fatura.status_pag = "Cancelada"
+
+    db.commit()
+    return True
+
+
+# 5. Marcar paciente como inativo ao invés de deletar
+def desativar_paciente(db: Session, id_paciente: int):
+    paciente = db.query(Paciente).filter(Paciente.id == id_paciente).first()
+    if paciente:
+        paciente.ativo = False  # Certifique-se que o campo 'ativo' existe no model Paciente
+        db.commit()
+        return paciente
+    return None
+
+
+# 6. Criar prescrição e exigir que pelo menos um medicamento seja associado
+def create_prescricao_com_validacao(db: Session, id_paciente: int, id_funcionario: int, data_prescricao, medicamentos: list):
+    if not medicamentos:
+        raise ValueError("A prescrição deve conter pelo menos um medicamento.")
+
+    prescricao = Prescricao(
+        data_prescricao=data_prescricao,
+        paciente_id=id_paciente,
+        funcionario_id=id_funcionario
+    )
+    db.add(prescricao)
+    db.commit()
+    db.refresh(prescricao)
+
+    for med in medicamentos:
+        assoc = PrescricaoMedicamento(
+            id_prescricao=prescricao.id,
+            id_medicamento=med['id_medicamento'],
+            quantidade=med['quantidade'],
+            instrucoes=med['instrucoes']
+        )
+        db.add(assoc)
+
+    db.commit()
+    return prescricao
