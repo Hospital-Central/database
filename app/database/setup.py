@@ -2,9 +2,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
 engine = create_engine(
-    'mysql+pymysql://root:Banco99%23@localhost:3306/Hospital',
+    'mysql+pymysql://root:senha@localhost:3306/Hospital',
     echo=True,
-    pool_pre_ping=True
 )
 
 
