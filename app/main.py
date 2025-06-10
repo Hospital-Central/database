@@ -36,7 +36,9 @@ def main():
 
         # Criar internação (disponibilidade do leito deve mudar)
         internacao = create_internacao(db, paciente.id, leito.id, datetime.date.today())
+        db.refresh(leito)  # Atualiza o objeto leito para pegar alterações no DB
         print(f"Internação criada: {internacao.id} - Leito disponível? {leito.disponivel}")
+
 
         # Criar agendamento (gera fatura automaticamente)
         agendamento = create_agendamento(db, paciente.id, funcionario.id, datetime.datetime.now(), "Consulta")
