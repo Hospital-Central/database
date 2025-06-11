@@ -120,4 +120,13 @@ Este projeto está licenciado sob a [MIT License](LICENSE).
 
 ---
 
+## Equipe de Desenvolvimento
+
+- [Samara Araújo] (https://github.com/s4mnara)
+- [Eveline Síntia] (https://github.com/EvelineSintia)
+- [Ana Clara] (https://github.com/anacfmonte)
+- [Adriel Gomes] (https://github.com/Adriel-grs)
+
+---
+
 Obrigado por usar o sistema Hospital Central!
